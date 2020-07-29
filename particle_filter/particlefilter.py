@@ -2,17 +2,19 @@
 #Particle filter module
 import numpy as np
 from numpy import pi
-from numpy import append
 from scipy.stats import norm
 
 def prob_normal_distribution(xnorm, bvar):
+    """prob_normal_distribution(xnorm, bvar) returns a density probability function of a normal distribution
+    (zero - mean, bvar - standard deviation) evaluated at the point xnorm. """
+
     norm_prob = np.exp(-0.5*((xnorm/bvar)**2))/(np.sqrt(2*pi)*bvar)
     return norm_prob
 
 
 def motion_model_odometry(xt, ut, xt_1, alpha):
     """Function motion_model_odometry(xt, ut, xt_1, alpha) returns a density probability function of
-      a particle being in position xt based on odometry measure ut and known last position xt_1.
+      a particle being in position xt based on the odometry measure ut and last position known xt_1.
       Parameter alpha = vector of standard deviation in measures"""
     
     a1 = alpha[0]
@@ -52,6 +54,11 @@ def motion_model_odometry(xt, ut, xt_1, alpha):
 
 
 def sample_motion_model_odometry(ut, xt_1, alpha):
+    """ Function sample_motion_model_odometry(ut, xt_1, alpha) returns a sampled robot position xt
+    based on the odometry measure ut and last position known xt_1.
+    alpha = vector of standard deviation in measures.
+     """
+
     a1 = alpha[0]
     a2 = alpha[1]
     a3 = alpha[2]
@@ -84,6 +91,12 @@ def sample_motion_model_odometry(ut, xt_1, alpha):
     return xt
 
 def sample_motion_model_odometry_vec(ut, xt_1, alpha,M):
+    """ Function sample_motion_model_odometry_vec(ut, xt_1, alpha,M) returns a vector of
+    sampled robot (particles) positions xt based on the odometry measure ut and last position known xt_1.
+    alpha = vector of standard deviation in measures.
+    M = number of particles.
+    """
+
     a1 = alpha[0]
     a2 = alpha[1]
     a3 = alpha[2]
@@ -112,11 +125,16 @@ def sample_motion_model_odometry_vec(ut, xt_1, alpha,M):
     yl = y + dtransbar * np.sin(theta + drot1bar)
     thetal = theta + drot1bar + drot2bar
 
-    xt = np.stack((xl, yl, thetal))
-    return xt
+    xt_odo = np.stack((xl, yl, thetal))
+    return xt_odo
 
 
 def landmark_model_correspondence(fi,ci,x,m,var):
+    """ Function landmark_model_correspondence(fi,ci,x,m,var) returns the density probability function
+     of the robot measurements (fi,ci) of landmarks given the robot position x and map m of landmarks.
+     var = vector of standard deviation of measures.
+       """
+
     var1 = var[0]
     var2 = var[1]
 
@@ -134,6 +152,11 @@ def landmark_model_correspondence(fi,ci,x,m,var):
 
 
 def landmark_model_correspondence_vec(fi,ci,x,m,var,M):
+    """ Function landmark_model_correspondence(fi,ci,x,m,var) returns a vector of density probability functions
+       of the robot measurements (fi,ci) of landmarks given the particles robot positions vector x and map m of landmarks.
+       var = vector of standard deviation of measures
+       M = number of particles
+         """
     var1 = var[0]
     var2 = var[1]
 
@@ -149,12 +172,15 @@ def landmark_model_correspondence_vec(fi,ci,x,m,var,M):
         phibar[j-1,:] = np.arctan2(myj - x[1,:],mxj - x[0,:]) - x[2,:]
         p_land_temp[j-1,:] = norm.pdf(rbar[j-1,:] - fi[0,j-1], loc=0, scale=var1)*norm.pdf(phibar[j-1,:] - fi[1,j-1], loc=0, scale=var2)
 
-        #p_land = p_land*prob_normal_distribution(rbar - fi[0,j-1], var1)*prob_normal_distribution(phibar - fi[1,j-1], var2)
     p_land = np.prod(p_land_temp,axis=0)
     return p_land
 
 
 def low_variance_sampler(Xt, M):
+    """Function low_variance_sampler(Xt, M): Resampling of particles Xt based on weighting (weight = Xt(3))
+     of each particle
+     M = number of particles"""
+
     Xbart = np.zeros((4, M))
     r = 0 + (1 / M - 0) * np.random.rand()
 
@@ -172,7 +198,8 @@ def low_variance_sampler(Xt, M):
 
 
 def particle_filter_algorithm(Xt_1,M,ut,m,zt,alpha,varsens):
-    #Xbart = np.zeros((4, M))
+    """Function particle_filter_algorithm(Xt_1,M,ut,m,zt,alpha,varsens): Particle filter algorithm which returns
+    the position of each particle after odometry and sensors measurements are incorporated"""
     fi = np.copy(zt[0:2,:])
     ci = np.copy(zt[2,:])
 
@@ -181,17 +208,6 @@ def particle_filter_algorithm(Xt_1,M,ut,m,zt,alpha,varsens):
     Wmt = landmark_model_correspondence_vec(fi,ci,Xmt,m,varsens,M)
     n = np.sum(Wmt)
     Wmt = Wmt/n
-    #for i in range(0,M-1,1):
-        #xmt_1 = np.copy(Xt_1[0:3, i])
-        #xmt = sample_motion_model_odometry(ut, xmt_1, alpha)
-       # xmt = np.copy(Xmt[0:3,i])
-       # wmt = landmark_model_correspondence(fi, ci, xmt, m, varsens)
-       # Xbart[:, i] = append(xmt,wmt)
-       # n = n + wmt
-
-    #Xbart[3,:] = np.copy(Xbart[3,:])/n
     Xbart = np.vstack((Xmt,Wmt))
-
-    #Xtresult = np.copy(Xbart)
     Xtresult = low_variance_sampler(Xbart, M)
     return Xtresult
