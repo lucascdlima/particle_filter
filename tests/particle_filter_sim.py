@@ -4,15 +4,28 @@ from numpy import pi
 import tests.context
 from particle_filter import particlefilter as pf
 import numpy.matlib
+
+from particle_filter.guiparticlefilter import QtWidgets, ApplicationWindow
+from particle_filter.particlefilter import particle_filter_simulation
+
 import matplotlib.pyplot as plt
 import time
 import matplotlib.animation as animation
 from tests.animation_test import animation_test
 
 if __name__ == "__main__":
-    import sys
+   import sys
 
-    if len(sys.argv) > 1:
+   fig1, ax1 = plt.subplots()
+   x0 = np.array((0.0,0.0,0.0))
+   odom_variance = [0.6, 0.4, 0.4, 0.4]
+   landmark_variance = [0.2, 0.2, 0.1]
+   M_particles= 500
+   T = 20
+   dt = 0.1
+   particle_filter_simulation(x0, odom_variance, landmark_variance,M_particles, T, dt, "",ax1, plt)
+
+   """ if len(sys.argv) > 1:
         if sys.argv[1] == "animate":
             animate = "animate"
         else:
@@ -112,4 +125,4 @@ if __name__ == "__main__":
         ax1.scatter(xreal_salva[0, :], xreal_salva[1, :], s=10, c='w', edgecolors='g')
         ax1.plot(xreal_salva[0, :], xreal_salva[1, :], c='g')
 
-    plt.show()
+    plt.show()"""
