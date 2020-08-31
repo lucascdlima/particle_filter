@@ -13,7 +13,7 @@ import particle_filter.particlefilter as pfilter
 
 class MyPlotCanvas(FigureCanvas):
     """Class for embedding Matplotlib features in PyQt.
-       In this manner enabling to plot and display in Qt widget """
+       It enables to plot data and display in Qt widget """
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
