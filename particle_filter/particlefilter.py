@@ -6,7 +6,7 @@ import time
 
 
 def prob_normal_distribution(x, bvar):
-    """prob_normal_distribution(x, bvar) returns a density probability function of a normal distribution
+    """Function prob_normal_distribution(x, bvar) returns a density probability function of a normal distribution
     (mean = 0, bvar = standard deviation) evaluated at the point x. """
 
     norm_prob = np.exp(-0.5 * ((x / bvar) ** 2)) / (np.sqrt(2 * pi) * bvar)
@@ -16,7 +16,7 @@ def prob_normal_distribution(x, bvar):
 def motion_model_odometry(xt, ut, xt_1, alpha):
     """Function motion_model_odometry(xt, ut, xt_1, alpha) returns a density probability function of
       a particle being in position xt based on the odometry measure ut and last position known xt_1.
-      Parameter alpha = vector of standard deviation in measures"""
+      alpha = vector of standard deviation in odometry measures"""
 
     a1 = alpha[0]
     a2 = alpha[1]
@@ -59,10 +59,6 @@ def motion_model_odometry(xt, ut, xt_1, alpha):
         diff_rot2 = drot2 - drot2hat - diff_sign * 2 * pi
         print("entrou diff rot2 > pi ")
 
-    """ p1 = prob_normal_distribution(drot1 - drot1hat, a1 * abs(drot1hat) + a2 * abs(dtranshat))
-    p2 = prob_normal_distribution(dtrans - dtranshat, a3 * abs(dtranshat) + a4 * (abs(drot1hat) + abs(drot2hat)))
-    p3 = prob_normal_distribution(drot2 - drot2hat, a1 * abs(drot2hat) + a2 * abs(dtranshat))"""
-
     p1 = prob_normal_distribution(diff_rot1, a1 * abs(drot1hat) + a2 * abs(dtranshat))
     p2 = prob_normal_distribution(dtrans - dtranshat, a3 * abs(dtranshat) + a4 * (abs(drot1hat) + abs(drot2hat)))
     p3 = prob_normal_distribution(diff_rot2, a1 * abs(drot2hat) + a2 * abs(dtranshat))
@@ -79,11 +75,11 @@ def angle_abs_pi(drot1,drot1hat):
         #print(f'diff abs = {diff_rot1*180/pi} degree ')
 
 
-
 def sample_motion_model_odometry(ut, xt_1, alpha):
-    """ Function sample_motion_model_odometry(ut, xt_1, alpha) returns a sampled robot position xt
+    """ Function sample_motion_model_odometry(ut, xt_1, alpha): returns a sampled robot position xt
     based on the odometry measure ut and last position known xt_1.
-    alpha = vector of standard deviation in measures.
+    alpha: array[4] standard deviation elements in odometry measures.
+    ut: array[6] of odometry positions odom(t-1) and odom(t)
      """
 
     a1 = alpha[0]
@@ -277,21 +273,19 @@ def particle_filter_simulation(x0_in, odovar_in, landmarkvar_in, M, T, dt, anima
 
     x0 = np.array(x0_in)
     xreal = np.copy(x0)
+    xreal_old = np.copy(x0)
+    xodot1 = np.copy(x0)
     xodot_1 = np.copy(x0)
-    x_hat = np.copy(x0)
-    #T = 20
-    #dt = 0.1
 
     # alpha = [0.07 0.05 0.05 0.05]; %moving aprox 1 m, errors = aprox 0.1 m
     #alpha = np.array([0.8, 0.6, 0.6, 0.6])  # variance of odometric readings
-   #varsen = np.array([0.15, 0.15, 0.1])  # variance of sensor landmark readings
+    #varsen = np.array([0.15, 0.15, 0.1])  # variance of sensor landmark readings
     alpha = np.array(odovar_in)  # variance of odometric readings
     varsen = np.array(landmarkvar_in)  # variance of sensor landmark readings
 
     m = np.stack((np.concatenate((np.arange(5), np.arange(5))), np.concatenate((np.ones(5) * 2, np.ones(5) * 3)),
                   np.linspace(1, 10, 10)))  # map of environment (landmarks)
 
-    #M = 500
     mapxend = 8
     mapyend = 6
 
@@ -303,18 +297,12 @@ def particle_filter_simulation(x0_in, odovar_in, landmarkvar_in, M, T, dt, anima
 
     t = np.arange(0, T, dt)
 
-    #u = np.array([0.15, 20 * pi / 180], dtype=float)
-    #u_vec_temp = np.repeat(np.array([[u[0], u[0]], [u[1], -u[1]]]), [round(5 / dt, 1), round(5 / dt, 1)], axis=1)
-    #u_vec = np.matlib.repmat(u_vec_temp, 1, round(t.size / 5 / 2))
     v0 = 0.15
     w0 = 20 * pi / 180
     u = np.array(((v0, v0, v0, v0), (w0, -w0, w0, -w0)))
-    time_hold = np.array([4, 4, 4, 4])
+    time_hold = np.array([5, 5, 5, 5])
 
     u_vec = create_vehicle_command(u, time_hold, t, dt)
-
-    xodot1 = np.copy(x0)
-    xold = np.copy(xodot1)
 
     axes.set_xlim([-2, 5])
     axes.set_ylim([-2, 5])
@@ -335,7 +323,6 @@ def particle_filter_simulation(x0_in, odovar_in, landmarkvar_in, M, T, dt, anima
     xhat_salva = np.zeros((3, t_len),dtype=float)
 
     start_time = time.time()
-    Xt_part = []
 
     for i in range(0, t_len, 1):
 
@@ -344,7 +331,7 @@ def particle_filter_simulation(x0_in, odovar_in, landmarkvar_in, M, T, dt, anima
         xodot1[2] = xodot_1[2] + u_vec[1, i] * dt
 
         ut = np.concatenate((xodot_1, xodot1))
-        xreal = sample_motion_model_odometry(ut, xreal, alpha)
+        xreal = sample_motion_model_odometry(ut, xreal_old, alpha)
 
         zt = np.stack((np.sqrt((m[0, :] - xreal[0]) ** 2 + (m[1, :] - xreal[1]) ** 2) + varsen[0] * np.random.randn(),
                        np.arctan2(m[1, :] - xreal[1], m[0, :] - xreal[0]) - xreal[2] + varsen[1] * np.random.randn(),
@@ -364,6 +351,7 @@ def particle_filter_simulation(x0_in, odovar_in, landmarkvar_in, M, T, dt, anima
             k = k + 1
 
         xodot_1 = np.copy(xodot1)
+        xreal_old = np.copy(xreal)
         xodo_salva[:, i] = np.copy(xodot1)
         xreal_salva[:, i] = np.copy(xreal)
         xhat_salva[:, i] = np.copy(x_hat)
