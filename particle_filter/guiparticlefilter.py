@@ -7,7 +7,6 @@ matplotlib.use('Qt5Agg')
 from matplotlib.figure import Figure
 import sys
 import numpy as np
-from numpy import pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import particle_filter.particlefilter as pfilter
 
@@ -83,10 +82,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.vlayout_left.addStretch(1)
 
         self.plot_canvas = MyPlotCanvas(self.main_widget, width=7, height=4, dpi=100)
-
-        """t = np.arange(0.0, 3.0, 0.01)
-        s = np.sin(2 * pi * t)
-        self.plot_canvas.axes.plot(t, s)"""
 
         self.vlayout_right.addWidget(self.plot_canvas)
 
