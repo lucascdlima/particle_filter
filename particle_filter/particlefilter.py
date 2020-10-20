@@ -3,15 +3,19 @@ import numpy as np
 from numpy import pi
 from scipy.stats import norm
 import time
+from math import modf
 
 
 def motion_model_odometry(xt, ut, xt_1, odom_std):
     """Calculates a density probability function of a particle in position xt given the known
     odometry measure ut and last position xt_1. In other words, computes the probability p(xt/ut,xt_1).
-      xt: array[3] current unknown position
-      odom_std = array[4] of standard deviations in odometry measures
-      ut: array[6] of odometry positions in instants (t-1) and (t)
-      xt_1: array[3] of known position in instant t-1
+      Args:
+          xt: array((3)) current unknown position.
+          odom_std = array((4)) of standard deviations in odometry measures.
+          ut: array((6)) of odometry positions in instants (t-1) and (t).
+          xt_1: array((3)) of known position in instant t-1.
+      Returns:
+            probability value.
       """
 
     a1 = odom_std[0]
@@ -55,11 +59,15 @@ def motion_model_odometry(xt, ut, xt_1, odom_std):
 
 
 def angle_abs_pi(angle1, angle2):
-    """Calculates the difference of two angles and return the value between [-pi,pi]"""
+    """Calculates the difference of two angles (angle1 - angle2) and return the value between [-pi,pi].
+    Angles are expressed in radians"""
+    
     diff = angle1 - angle2
+    fractional, whole = modf(diff/(2.0*pi))
+    diff = fractional*2.0*pi
     if diff > pi or diff < -pi:
         diff_sign = np.sign(diff)
-        diff = diff - diff_sign * 2 * pi
+        diff = diff - diff_sign * 2.0 * pi
 
     return diff
 
@@ -67,10 +75,13 @@ def angle_abs_pi(angle1, angle2):
 def sample_motion_model_odometry(ut, xt_1, odom_std, N_particles=1):
     """ Calculates a vector of sampled robot positions xt based on odometry measure ut and
     last known position xt_1.
-    ut: array[6] of odometry positions in instants (t-1) and (t)
-    xt_1: array[3] of known position of single particle or array([3,N_particles]) for more particles
-    odom_std: array[4] of standard deviations in odometry measures
-    N_particles: number of particles
+    Args:
+        ut: array((6)) of odometry positions in instants (t-1) and (t)
+        xt_1: array((3,N_particles)) of known position of single particle or array([3,N_particles]) for more particles
+        odom_std: array((4)) of standard deviations in odometry measures
+        N_particles: number of particles
+    Returns:
+        array((3,N_particles)) of sampled positions with (x,y,phi) coordinates.
     """
 
     a1 = odom_std[0]
@@ -114,12 +125,16 @@ def sample_motion_model_odometry(ut, xt_1, odom_std, N_particles=1):
 def landmark_model_correspondence(landmark_measure, landmark_corresp, xt, landmark_map, landmark_std, N_particles=1):
     """ Calculates the density probability function of the robot measurements (landmark_measure,landmark_corresp) of landmarks
     given the particles positions vector xt and map landmark_map of landmarks.
-       landmark_measure: array([2, N_landmarks]) landmark position measured (r:distance, phi:angle)
-       landmark_corresp: array([N_landmarks]) of correspondences between real and measured landmarks
-       xt: array([3,N_particles]) positions of particles before incorporates sensor measures
-       landmark_map: array([2,N_landmarks]) of landmarks positions
-       landmark_std: array([2]) of standard deviation extraction landmarks measures
-       N_particles = number of particles
+       Args:
+            landmark_measure: array((2, N_landmarks)) landmark position measured (r:distance, phi:angle)
+            landmark_corresp: array((N_landmarks)) of correspondences between real and measured landmarks
+            xt: array((3,N_particles)) positions of particles before incorporates sensor measures
+            landmark_map: array((2,N_landmarks)) of landmarks positions
+            landmark_std: array((2)) of standard deviation extraction landmarks measures
+            N_particles = number of particles
+        Returns:
+            array((1,N_particles)) of probabilities values
+
          """
 
     r_std = landmark_std[0]
@@ -129,18 +144,19 @@ def landmark_model_correspondence(landmark_measure, landmark_corresp, xt, landma
     if len(xt.shape) == 1:
         xt.resize((3,1))
 
-    p_land_temp = np.ones((landmark_map.shape[1], N_particles), dtype=float)
-    r_hat = np.zeros((landmark_map.shape[1], N_particles), dtype=float)
-    phi_hat = np.zeros((landmark_map.shape[1], N_particles), dtype=float)
+    N_land_mes = landmark_measure.shape[1]
+    p_land_temp = np.ones((N_land_mes, N_particles), dtype=float)
+    r_hat = np.zeros((N_land_mes, N_particles), dtype=float)
+    phi_hat = np.zeros((N_land_mes, N_particles), dtype=float)
 
-    for k in range(0, landmark_map.shape[1], 1):
+    for k in range(N_land_mes):
         j = int(landmark_corresp[k])
-        mxj = landmark_map[0, j - 1]
-        myj = landmark_map[1, j - 1]
-        r_hat[j - 1, :] = np.sqrt((mxj - xt[0, :]) ** 2 + (myj - xt[1, :]) ** 2)
-        phi_hat[j - 1, :] = np.arctan2(myj - xt[1, :], mxj - xt[0, :]) - xt[2, :]
-        p_land_temp[j - 1, :] = norm.pdf(landmark_measure[0, j - 1] - r_hat[j - 1, :], loc=0, scale=r_std) * norm.pdf(
-            landmark_measure[1, j - 1] - phi_hat[j - 1, :], loc=0, scale=phi_std)
+        mxj = landmark_map[0, j]
+        myj = landmark_map[1, j]
+        r_hat[k, :] = np.sqrt((mxj - xt[0, :]) ** 2 + (myj - xt[1, :]) ** 2)
+        phi_hat[k, :] = np.arctan2(myj - xt[1, :], mxj - xt[0, :]) - xt[2, :]
+        p_land_temp[k, :] = norm.pdf(landmark_measure[0, k] - r_hat[k, :], loc=0, scale=r_std) * norm.pdf(
+            landmark_measure[1, k] - phi_hat[k, :], loc=0, scale=phi_std)
 
     prob_landmark = np.prod(p_land_temp, axis=0)
     return prob_landmark
@@ -170,18 +186,22 @@ def sample_landmark_model_correspondence(fi, ci, m, landmark_var, N_particles):
 
 def low_variance_sampler(Xt, N_particles):
     """ Low Variance Resampling method for sampling particles Xt based on weighing (weight = Xt[3] 4th element)
-     of each particle
-     Xt: array([4,N_particles]) of particles positions and weights in instant t
-     N_particles : number of particles"""
+     of each particle.
+     Args:
+         Xt: array((4,N_particles)) of particles positions and weights in instant t
+         N_particles : number of particles
+     Returns:
+         array((4,N_particles)) with particles positions (array[0:3, index]) and respective weights [array[3, index]]
+         """
 
-    Xbart = np.zeros((4, N_particles))
-    r = 0 + (1 / N_particles - 0) * np.random.rand()
+    Xbart = np.zeros((4, N_particles),dtype=float)
+    r = 0.0 + (1.0 / N_particles - 0) * np.random.rand()
 
     w1t = Xt[3, 0]
     c = w1t
     i = 1
-    for m in range(1, N_particles, 1):
-        u = r + (m - 1) * (1 / N_particles)
+    for m in range(1, N_particles+1, 1):
+        u = r + (m - 1) * (1.0/N_particles)
         while (u > c):
             i = i + 1
             c = c + Xt[3, i - 1]
@@ -191,13 +211,16 @@ def low_variance_sampler(Xt, N_particles):
 
 
 def particle_filter_algorithm(Xt_1, N_particles, ut, landmark_map, zt, odom_std, landmark_std):
-    """ Executes the Localization particle filter algorithm and returns the position of each particle
+    """ Run the Localization particle filter algorithm and returns the position of each particle
     after incorporating odometry and sensors measurements.
-    Xt_1: array([4,N_particles]) of particles positions and weights in instant t-1
-    N_particles: Number of particles
-    ut: array[6] of odometry positions odom(t-1) and odom(t)
-    landmark_map: array([2,N_landmarks]) of landmarks positions
-    zt: array(3,N_landmarks) of landmarks measures and correspondences
+    Args:
+        Xt_1: array((4,N_particles)) of particles positions and weights in instant t-1
+        N_particles: Number of particles
+        ut: array((6)) of odometry positions odom(t-1) and odom(t)
+        landmark_map: array([2,N_landmarks]) of landmarks positions
+        zt: array((3,N_landmarks)) of landmarks measures and correspondences
+    Returns:
+        array((4,N_particles)) of particles with positions and weights updated
     """
 
     fi = np.copy(zt[0:2, :])
@@ -205,21 +228,40 @@ def particle_filter_algorithm(Xt_1, N_particles, ut, landmark_map, zt, odom_std,
 
     n = 0.0
     Xmt = sample_motion_model_odometry(ut, Xt_1, odom_std, N_particles)
-    Wmt = landmark_model_correspondence(fi, ci, Xmt, landmark_map, landmark_std, N_particles)
+    """Wmt = landmark_model_correspondence(fi, ci, Xmt, landmark_map, landmark_std, N_particles)
     n = np.sum(Wmt)
     Wmt = Wmt / n
     Xbart = np.vstack((Xmt, Wmt))
     Xtresult = low_variance_sampler(Xbart, N_particles)
+
+    print(n)"""
+    if(zt is None):
+        Wmt = np.ones((1,N_particles))/N_particles
+        Xbart = np.vstack((Xmt, Wmt))
+        Xtresult = np.copy(Xbart)
+    else:
+        fi = np.copy(zt[0:2, :])
+        ci = np.copy(zt[2, :])
+
+        Wmt = landmark_model_correspondence(fi, ci, Xmt, landmark_map, landmark_std, N_particles)
+        n = np.sum(Wmt)
+        Wmt = Wmt / n
+        Xbart = np.vstack((Xmt, Wmt))
+        Xtresult = low_variance_sampler(Xbart, N_particles)
+
     return Xtresult
 
 
 def create_vehicle_command(u_command, time_hold, t_vec, dt):
     """Creates a array of linear and angular velocities for a vehicle (robot) to be used during simulation of
     Particle Filter localization.
-    u_comand = array(2,n) - eg. [[10, 10, 10],[pi, pi, pi]]
-    time_hold = array(1,n) in seconds - eg. [[5, 5, 5]]
-    t_vec = (seconds) array of each step time simulation
-    dt = (seconds) step time of simulation
+    Args:
+        u_command = array((2,n)) - eg. [[10, 10, 10],[pi, pi, pi]]
+        time_hold = array((1,n)) in seconds - eg. [[5, 5, 5]]
+        t_vec = (seconds) array of each step time simulation
+        dt = (seconds) step time of simulation
+    Returns:
+        array((2,columns)) of linear and angular velocities applied in each step time of simulation.
     """
 
     t_len = len(t_vec)
@@ -243,15 +285,16 @@ def create_vehicle_command(u_command, time_hold, t_vec, dt):
 
 def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles, T, dt, animate, plot_axes, plot_obj):
     """Encapsulates a example of particle localization simulation. Creates a map and simulates a mobile robot
-    x0_in: array[3] initial robot position in the map
-    odom_std_in: array[4] of standard deviations in odometry measures
-    landmark_std_in: array[2] of standard deviation landmarks extraction measures
-    N_particles: number of particles
-    T: Time of simulation
-    dt: interval time of simulation
-    animate: if equal to "animate" runs an plot animation of estimated positions evolution over time
-    plot_axes: axes for plotting data
-    plot_obj: plot object of matplot lib to be used in animation
+    Args:
+        x0_in: array((3)) initial robot position in the map
+        odom_std_in: array((4)) of standard deviations in odometry measures
+        landmark_std_in: array((2)) of standard deviation landmarks extraction measures
+        N_particles: number of particles
+        T: Time of simulation
+        dt: interval time of simulation
+        animate: if equal to "animate" runs an plot animation of estimated positions evolution over time
+        plot_axes: axes for plotting data
+        plot_obj: plot object of matplot lib to be used in animation
     """
 
     x0 = np.array(x0_in)
@@ -263,24 +306,24 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
     landmark_std = np.array(landmark_std_in)
 
     #Landmarks positons map
-    m = np.stack((np.concatenate((np.arange(5), np.arange(5))), np.concatenate((np.ones(5) * 2, np.ones(5) * 3)),
-                  np.linspace(1, 10, 10)))  # map of environment (landmarks)
+    m = np.stack((np.concatenate((np.arange(5), np.arange(5))), np.concatenate((np.ones(5,dtype=float) * 2, np.ones(5,dtype=float) * 3)),
+                  np.linspace(0, 9, 10)))  # map of environment (landmarks)
 
     mapxend = 8
     mapyend = 6
 
     #Generate random particles over the environment to start estimation
-    xinit = -0.5 + (mapxend - (-0.5)) * np.random.rand(N_particles)
-    yinit = -0.5 + (mapyend - (-0.5)) * np.random.rand(N_particles)
+    xinit = -1.0 + (mapxend - (-1.0)) * np.random.rand(N_particles)
+    yinit = -1.0 + (mapyend - (-1.0)) * np.random.rand(N_particles)
     thetainit = np.zeros((N_particles), dtype=float)
 
-    X0 = np.stack((xinit, yinit, thetainit, np.zeros(N_particles)))
+    X0 = np.stack((xinit, yinit, thetainit, np.zeros(N_particles, dtype=float)))
 
     t = np.arange(0, T, dt)
 
     #Creates angular and linear velocities for the mobile robot movement over the entire simulation time
     v0 = 0.15
-    w0 = 20 * pi / 180
+    w0 = 20.0 * pi / 180
     u = np.array(((v0, v0, v0, v0), (w0, -w0, w0, -w0)))
     time_hold = np.array([5, 5, 5, 5])
 
@@ -319,7 +362,7 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
         xreal = sample_motion_model_odometry(ut, xreal_old, odom_std)
         xreal.resize(3)
 
-        #Computes landmarks meausres
+        #Computes landmarks measures
         zt = np.stack((np.sqrt((m[0, :] - xreal[0]) ** 2 + (m[1, :] - xreal[1]) ** 2) + landmark_std[0] * np.random.randn(),
                        np.arctan2(m[1, :] - xreal[1], m[0, :] - xreal[0]) - xreal[2] + landmark_std[1] * np.random.randn(),
                        m[2, :]))
