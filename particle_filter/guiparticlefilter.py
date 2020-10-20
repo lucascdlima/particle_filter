@@ -19,8 +19,6 @@ class MyPlotCanvas(FigureCanvas):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
 
-        # self.compute_initial_figure()
-
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
 
@@ -32,19 +30,11 @@ class MyPlotCanvas(FigureCanvas):
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
+
+        #Interface and layout setup
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle("Particle filter simulator")
         self.setGeometry(10, 10, 1000, 600)
-        # self.file_menu = QtWidgets.QMenu('&File', self)
-        # self.file_menu.addAction('&Quit', self.fileQuit,
-        #                          QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
-        # self.menuBar().addMenu(self.file_menu)
-
-        # self.help_menu = QtWidgets.QMenu('&Help', self)
-        # self.menuBar().addSeparator()
-        # self.menuBar().addMenu(self.help_menu)
-
-        # self.help_menu.addAction('&About', self.about)
 
         self.main_widget = QtWidgets.QWidget(self)
 
@@ -81,6 +71,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.vlayout_left.addWidget(self.lined_landmarkvar)
         self.vlayout_left.addStretch(1)
 
+        #Create canvas object for plotting purposes
         self.plot_canvas = MyPlotCanvas(self.main_widget, width=7, height=4, dpi=100)
 
         self.vlayout_right.addWidget(self.plot_canvas)
@@ -89,18 +80,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
-        """self.x0 = np.array([0,0,0], dtype=float)
-        self.m_particles = 0
-        self.var_odom = np.array([0, 0, 0], dtype=float)
-        self.var_landmark = np.array([0, 0, 0, 0], dtype=float)"""
-
+        #Connects interface action to callback
         self.button_startsim.clicked.connect(self.buttonStartSimClick)
-
-        print(f'bt startsim size x,y =  {self.button_startsim.size().width()} , {self.button_startsim.size().height()}')
-        print(
-            f' label m particle size x,y =  {self.label_mparticle.size().width()} , {self.label_mparticle.size().height()}')
-        print(
-            f'line edit_mparticle size x,y =  {self.lined_mparticle.size().width()} , {self.lined_mparticle.size().height()}')
 
     def fileQuit(self):
         self.close()
@@ -109,17 +90,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.fileQuit()
 
     def buttonStartSimClick(self):
-
+        """ Callback called after QPushButton button_startsim is clicked on interface."""
         pfilter.particle_filter_simulation(0, 0, 0, 0, 0, 0, "",self.plot_canvas)
         self.plot_canvas.draw()
         parameters = 1
 
         if (self.lined_mparticle.text() != ""):
             self.m_particles = int(self.lined_mparticle.text())
-            print(f'Number of particles {self.m_particles}')
+            print('Number of particles {}'.format(self.m_particles))
         else:
             parameters = 0
-            print(f'Incorrect value inserted in Number of Particles field')
+            print('Incorrect value inserted in Number of Particles field')
 
         if (self.lined_odovar.text() != ""):
             vec_lined_odovar = self.lined_odovar.text().split(",")
@@ -129,10 +110,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 #print(f'Odometry Variances are: {self.var_odom[0]}, {self.var_odom[1]}, {self.var_odom[2]}, {self.var_odom[3]}.')
 
             else:
-                print(f'Must have 4 values separated by comma (,)')
+                print('Must have 4 values separated by comma (,)')
                 parameters = 0
         else:
-            print(f'Must have 4 values separated by comma (,)')
+            print('Must have 4 values separated by comma (,)')
             parameters = 0
 
         if self.lined_landmarkvar.text() != "" :
@@ -141,22 +122,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.var_landmark = np.array((float(vec_lined_landmarkvar[0]), float(vec_lined_landmarkvar[1]),
                                           float(vec_lined_landmarkvar[2])), dtype=float)
             else:
-                print(f'Landmark variance: Must have 3 values separated by comma (,)')
+                print('Landmark variance: Must have 3 values separated by comma (,)')
                 parameters = 0
         else:
-            print(f'Landmark variance: Must have 3 values separated by comma (,)')
+            print('Landmark variance: Must have 3 values separated by comma (,)')
             parameters = 0
 
-        #if parameters == 1:
-         #   pfilter.particle_filter_simulation(0, 0, 0, 0, 0, 0, "", self.plot_canvas)
+
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
 
     aw = ApplicationWindow()
-    """t = np.arange(0.0, 3.0, 0.01)
-    s = np.sin(2 * pi * t)
-    aw.plot_canvas.axes.plot(t, s)"""
 
     aw.setWindowTitle("%s" % "Particle Filter Simulator")
     aw.show()
