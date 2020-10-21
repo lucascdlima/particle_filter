@@ -15,13 +15,16 @@ def motion_model_odometry(xt, ut, xt_1, odom_std):
           ut: array((6)) of odometry positions in instants (t-1) and (t).
           xt_1: array((3)) of known position in instant t-1.
       Returns:
-            probability value.
+            probability density function value, otherwise returns None if odom_std values are zero.
       """
 
     a1 = odom_std[0]
     a2 = odom_std[1]
     a3 = odom_std[2]
     a4 = odom_std[3]
+
+    if((a1==0 and a2==0) or (a3==0 and a4==0)):
+        return None
 
     x_bar = ut[0]
     y_bar = ut[1]
@@ -143,6 +146,9 @@ def landmark_model_correspondence(landmark_measure, landmark_corresp, xt, landma
     #Transform xt array into column
     if len(xt.shape) == 1:
         xt.resize((3,1))
+
+    if(landmark_measure is None):
+        return None
 
     N_land_mes = landmark_measure.shape[1]
     p_land_temp = np.ones((N_land_mes, N_particles), dtype=float)
