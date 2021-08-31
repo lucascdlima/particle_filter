@@ -4,7 +4,8 @@ from numpy import pi
 from scipy.stats import norm
 import time
 from math import modf
-
+from matplotlib import animation
+import matplotlib.pyplot as plt
 
 def motion_model_odometry(xt, ut, xt_1, odom_std):
     """Calculates a density probability function of a particle in position xt given the known
@@ -289,7 +290,7 @@ def create_vehicle_command(u_command, time_hold, t_vec, dt):
     return u_vec
 
 
-def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles, T, dt, animate, plot_axes, plot_obj):
+def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles, T, dt, animate, plot_axes, plot_fig, plot_obj):
     """Encapsulates a example of particle localization simulation. Creates a map and simulates a mobile robot
     Args:
         x0_in: array((3)) initial robot position in the map
@@ -314,6 +315,7 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
     #Landmarks positons map
     m = np.stack((np.concatenate((np.arange(5), np.arange(5))), np.concatenate((np.ones(5,dtype=float) * 2, np.ones(5,dtype=float) * 3)),
                   np.linspace(0, 9, 10)))  # map of environment (landmarks)
+    landmarks_map = m
 
     mapxend = 8
     mapyend = 6
@@ -340,7 +342,7 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
     plot_axes.set_ylim([-2, 5])
     col = ['r', 'g', 'b', 'c', 'm', 'k']
     col_len = len(col)
-    plot_axes.scatter(m[0, :], m[1, :], c='w', s=120, marker='^', edgecolors='g')
+    # plot_axes.scatter(m[0, :], m[1, :], c='w', s=120, marker='^', edgecolors='g')
 
     #Arrays to store current/anterior particles positons and weights
     Xt = np.copy(X0)
@@ -354,6 +356,7 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
     xreal_salva = np.zeros((3, t_len), dtype=float)
     Xt_pos_salva = np.zeros((3, 2, N_particles), dtype=float)
     xhat_salva = np.zeros((3, t_len), dtype=float)
+    X_particles_salva = []
 
     start_time = time.time()
 
@@ -380,33 +383,62 @@ def particle_filter_simulation(x0_in, odom_std_in, landmark_std_in, N_particles,
         Xtold = np.copy(Xt)
 
         #Plot estimated particles positions over determined intervals
-        if t[i] % 2 == 0:
-            plot_axes.scatter(Xt[0, :], Xt[1, :], 2, col[int(k % (col_len - 1))], zorder=3)
-            if (Xt_pos_salva.shape[0] == k):
-                Xt_pos_salva = np.concatenate((Xt_pos_salva, np.reshape(Xt[0:2, :], (1, 2, N_particles))), axis=0)
-            else:
-                Xt_pos_salva[k, :, :] = np.copy(Xt[0:2, :])
-            k = k + 1
+        # if t[i] % 2 == 0:
+        #     plot_axes.scatter(Xt[0, :], Xt[1, :], 2, col[int(k % (col_len - 1))], zorder=3)
+        #     if (Xt_pos_salva.shape[0] == k):
+        #         Xt_pos_salva = np.concatenate((Xt_pos_salva, np.reshape(Xt[0:2, :], (1, 2, N_particles))), axis=0)
+        #     else:
+        #         Xt_pos_salva[k, :, :] = np.copy(Xt[0:2, :])
+        #     k = k + 1
 
         xodot_1 = np.copy(xodot1)
         xreal_old = np.copy(xreal)
         xodo_salva[:, i] = np.copy(xodot1)
         xreal_salva[:, i] = np.copy(xreal)
         xhat_salva[:, i] = np.copy(x_hat)
-
+        X_particles_salva.append(Xt)
         print("Percentage executed: %.2f %%" % (t[i] * 100 / T))
 
     dtime = time.time() - start_time
     print("Execution time: %.2f seconds" % (dtime))
 
-    plot_axes.plot(xodo_salva[0, :], xodo_salva[1, :], c='r', label='x odometry')
+    # plot_axes.plot(xodo_salva[0, :], xodo_salva[1, :], c='r', label='x odometry')
 
     if animate == "animate":
-        line, = plot_axes.plot([], [], lw=2, c='g')
-        #anim = animation.FuncAnimation(plot_canvas_in.fig, animation_test, fargs=(xreal_salva, axesplot_in, line), frames=t_len, interval=20)
+       # fig_animation, ax = plt.figure()
+
+        line_position_real, = plot_axes.plot([], [], lw=2, c='g')
+        line_position_odom, = plot_axes.plot([], [], lw=2, c='r')
+        line_position_pf, = plot_axes.plot([], [], lw=2, c='b')
+        # line_landmarks, = plot_axes.scatter([], [], s=10, c='w', edgecolors='g')
+        plot_data = []
+        plot_data.append(xreal_salva)
+        plot_data.append(xodo_salva)
+        plot_data.append(xhat_salva)
+        plot_data.append(X_particles_salva)
+        plot_data.append(landmarks_map)
+
+        line_data = []
+        line_data.append(line_position_real)
+        line_data.append(xodo_salva)
+        line_data.append(xhat_salva)
+        # line_data.append(landmarks_map)
+
+       # anim = animation.FuncAnimation(plot_canvas_in.fig, animation_test2, fargs=(xreal_salva, axesplot_in, line), frames=t_len, interval=20)
+        anim = animation.FuncAnimation(plot_fig, animation_test2, fargs=(plot_data, plot_axes, line_data),
+                                       frames=t_len, interval=20)
+
     else:
         plot_axes.scatter(xreal_salva[0, :], xreal_salva[1, :], s=10, c='w', edgecolors='g')
         plot_axes.plot(xreal_salva[0, :], xreal_salva[1, :], c='g', label='x real')
         plot_axes.plot(xhat_salva[0, :], xhat_salva[1, :], c='b', label='x estimated')
-    plot_axes.legend()
+    # plot_axes.legend()
     plot_obj.show()
+
+
+def animation_test2(i, data_plot_in, ax_in, lines):
+    ax_in.plot(data_plot_in[0][0,0:i], data_plot_in[0][1,0:i], lw=2, c='g')
+    ax_in.plot(data_plot_in[1][0,0:i], data_plot_in[1][1,0:i], lw=2, c='r')
+    ax_in.plot(data_plot_in[2][0,0:i], data_plot_in[0][1,0:i], lw=2, c='b')
+    ax_in.scatter(data_plot_in[3][i][0, :], data_plot_in[3][i][1, :], lw=2, c='b')
+    ax_in.scatter(data_plot_in[4][0, :], data_plot_in[4][1, :], s=10, c='w', edgecolors='g')

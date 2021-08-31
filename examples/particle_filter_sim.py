@@ -16,4 +16,4 @@ if __name__ == "__main__":
    M_particles= 500
    T = 20
    dt = 0.1
-   pfilter.particle_filter_simulation(x0, odom_std, landmark_std, M_particles, T, dt, "", ax1, plt)
+   pfilter.particle_filter_simulation(x0, odom_std, landmark_std, M_particles, T, dt, "animate", ax1, fig1, plt)
