@@ -8,7 +8,8 @@ if __name__ == "__main__":
    x0 = np.array((1.0,4.0,0.0))
 
    odom_std = [0.1, 0.1, 0.2, 0.1]
-   landmark_std = [0.3, 0.3]
+   landmark_std = [0.3, 0.3] #last used deviation
+   landmark_std = [0.8, 0.5]
 
    # odom_std = [1.8, 0.5, 0.05, 0.02]
    # landmark_std = [0.2, 0.2]

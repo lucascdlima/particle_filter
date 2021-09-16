@@ -4,6 +4,14 @@ import numpy as np
 
 if __name__ == "__main__":
 
+
+  angle1 = 0.0
+
+  angle2 = np.array([-3*np.pi/2 , -np.pi, 3*np.pi/2, np.pi])
+
+  result = pfilter.angle_diff(angle1,angle2)*180.0/np.pi
+  print(result)
+
   fig1, ax1 = plt.subplots()
   x0 = np.array((0.0,0.0,0.0))
 
@@ -13,7 +21,7 @@ if __name__ == "__main__":
   # odom_std = [0.1, 0.15, 0.2, 0.01]
 
   # odom_std = [0.1, 0.3, 0.2, 0.1]
-  landmark_variance = [0.2, 0.2, 0.2]
+  landmark_variance = [0.8, 0.5, 0.2]
   M_particles= 1000
   #T = 20
   T = 4
@@ -40,7 +48,7 @@ if __name__ == "__main__":
      xodot1[2] = xodot_1[2] + w0 * dt
      xodo_salva[:, i] = np.copy(xodot1)
      ut = np.concatenate((xodot_1, xodot1))
-     Xt = pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
+     Xt, temp= pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
      xodot_1 = np.copy(xodot1)
      if((i*dt) % 20 == 0):
          ax1.scatter(Xt[0, :], Xt[1, :], s=2, c='r', label='x real particles')
@@ -57,7 +65,7 @@ if __name__ == "__main__":
       xodot1[2] = xodot_1[2] + w0 * dt
       xodo_salva[:, i] = np.copy(xodot1)
       ut = np.concatenate((xodot_1, xodot1))
-      Xt = pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
+      Xt, temp = pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
       xodot_1 = np.copy(xodot1)
       if ((i * dt) % 20 == 0):
           ax1.scatter(Xt[0, :], Xt[1, :], s=2, c='r', label='x real particles')
@@ -74,7 +82,7 @@ if __name__ == "__main__":
       xodot1[2] = xodot_1[2] + w0 * dt
       xodo_salva[:, i] = np.copy(xodot1)
       ut = np.concatenate((xodot_1, xodot1))
-      Xt = pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
+      Xt,temp = pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
       xodot_1 = np.copy(xodot1)
       if ((i * dt) % 20 == 0):
           ax1.scatter(Xt[0, :], Xt[1, :], s=2, c='r', label='x real particles')
@@ -100,4 +108,41 @@ if __name__ == "__main__":
   arrow_dy = 0.01*np.sin(xt_samples[2,:])
   ax2.quiver(xt_samples[0, :], xt_samples[1, :],arrow_dx,arrow_dy,width = 0.01, zorder=1)
   ax2.set_aspect('equal', adjustable='datalim')
+
+
+
+  fig3, ax3 = plt.subplots()
+
+  xodot1 = np.copy(x0)
+  xodot_1 = np.copy(x0)
+  # v0 = 0.15
+  v0 = 0.4
+  w0 = 2* np.pi / 180
+
+  Tsim = 90
+  t = np.arange(0, Tsim, dt)
+
+  xodo_salva = np.zeros((3, total_len), dtype=float)
+
+  Xt_1 = np.stack((np.zeros(M_particles, dtype=float), np.zeros(M_particles, dtype=float), np.zeros(M_particles, dtype=float)))
+  xodot_1 = np.copy(x0)
+
+  w0_vector = np.ones(len(t),dtype=float)*w0
+  w0_vector[int(len(t)/3.0):int(len(t)*2/3.0)] = w0_vector[int(len(t)/3.0):int(len(t)*2/3.0)]*(-2)
+  for i in range(0, len(t), 1):
+     xodot1[0] = xodot_1[0] + v0 * dt * np.cos(xodot_1[2] + w0_vector[i] * dt)
+     xodot1[1] = xodot_1[1] + v0 * dt * np.sin(xodot_1[2] + w0_vector[i] * dt)
+     xodot1[2] = xodot_1[2] + w0_vector[i] * dt
+     xodo_salva[:, i] = np.copy(xodot1)
+     ut = np.concatenate((xodot_1, xodot1))
+     Xt, temp= pfilter.sample_motion_model_odometry(ut, Xt_1, odom_std, M_particles)
+     xodot_1 = np.copy(xodot1)
+     if((i*dt) % 20 == 0):
+         ax3.scatter(Xt[0, :], Xt[1, :], s=2, c='r', label='x real particles')
+         # arrow_dx = 0.01 * np.cos(Xt[2, :])
+         # arrow_dy = 0.01 * np.sin(Xt[2, :])
+         # ax1.quiver(Xt[0, :], Xt[1, :], arrow_dx, arrow_dy, width=0.01)
+     Xt_1 = np.copy(Xt)
+
+  ax3.plot(xodo_salva[0, :], xodo_salva[1, :], c='b', label='xodo')
   plt.show()
